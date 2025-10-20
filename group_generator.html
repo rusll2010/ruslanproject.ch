@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gruppengenerator</title>
+  <style>
+    :root{font-family:Inter,Segoe UI,Roboto,Arial;background:#f6f7fb;color:#111}
+    body{margin:20px}
+    .container{display:flex;gap:20px}
+    .left{flex:0 0 420px}
+    .top-names{display:flex;flex-wrap:wrap;gap:8px;padding:10px;border-radius:8px;background:#fff;box-shadow:0 6px 18px rgba(18,38,63,0.06)}
+    .name-cell{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;border:1px solid #e6e9ef;cursor:pointer;user-select:none}
+    .name-cell.selected{background:#eaf3ff;border-color:#8fbfff}
+    .name-cell .remove-x{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#fee; color:#b33;font-weight:700;margin-right:4px;cursor:pointer}
+    .controls{margin-top:12px;display:flex;gap:8px;align-items:center}
+    .btn{padding:8px 12px;border-radius:6px;border:1px solid #cfd6e8;background:#fff;cursor:pointer}
+    .btn.active{background:#2f80ed;color:#fff;border-color:transparent}
+    .right{flex:0 0 220px}
+    .sidebar{padding:10px;background:#fff;border-radius:8px;box-shadow:0 6px 18px rgba(18,38,63,0.06)}
+    .sidebar h4{margin:0 0 8px}
+    .sidebar .item{display:flex;justify-content:space-between;align-items:center;padding:6px 4px}
+    .groups-area{flex:1}
+    .groups-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+    .group-card{background:#fff;padding:10px;border-radius:8px;min-height:72px;border:1px dashed #e6e9ef}
+    .group-card h5{margin:0 0 6px;font-size:13px}
+    .member{padding:4px 6px;border-radius:4px;margin:3px 0;border:1px solid #eef3ff;background:#fbfdff;font-size:13px}
+    .footer{margin-top:12px}
+    .small{font-size:13px;color:#556}
+    .top-title{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  </style>
+</head>
+<body>
+  <h2>Gruppengenerator — wähle Namen und drücke Start</h2>
+  <div class="container">
+    <div class="left">
+      <div class="top-title"><strong>Namenliste</strong><span class="small">(Klick auf Name — hinzufügen/entfernen, Klick auf × — in Seitenleiste verschieben)</span></div>
+      <div id="names" class="top-names"></div>
+
+      <div class="controls">
+        <button id="mode2" class="btn active">2‑er Gruppen</button>
+        <button id="mode3" class="btn">3‑er Gruppen</button>
+        <button id="mode4" class="btn">4‑er Gruppen</button>
+        <button id="startBtn" class="btn">Start</button>
+        <button id="resetBtn" class="btn">Zurücksetzen</button>
+      </div>
+
+      <div class="footer">
+        <div class="small">Ausgewählte Namen: <span id="selectedCount">0</span></div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="sidebar">
+        <h4>Seitenleiste (entfernte Namen)</h4>
+        <div id="sidebarList"></div>
+      </div>
+    </div>
+
+    <div class="groups-area">
+      <div style="margin-bottom:8px"><strong>Gruppen (immer 1–10 sichtbar)</strong></div>
+      <div class="groups-grid" id="groupsGrid">
+        <!-- 10 group cards -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const initialNames = [
+      'Ruslan','Jusuf','Anissa','Maksim','Alessa','Alissa','Maksim','Kristina','Ben','Nno','Nigolas','Lana','Amina','Elvin','Julian','Enuar'
+    ];
+
+    let names = initialNames.map((n, i) => ({id:i, name:n, removed:false}));
+    let selected = new Set();
+    let mode = 2;
+
+    const namesContainer = document.getElementById('names');
+    const sidebarList = document.getElementById('sidebarList');
+    const selectedCount = document.getElementById('selectedCount');
+    const groupsGrid = document.getElementById('groupsGrid');
+
+    function renderNames(){
+      namesContainer.innerHTML = '';
+      names.forEach(person=>{
+        if(person.removed) return;
+        const cell = document.createElement('div');
+        cell.className = 'name-cell' + (selected.has(person.id)?' selected':'');
+        const x = document.createElement('div');
+        x.className = 'remove-x';
+        x.textContent = '×';
+        x.title = 'In Seitenleiste verschieben';
+        x.addEventListener('click', (ev)=>{ ev.stopPropagation(); moveToSidebar(person.id); });
+        cell.appendChild(x);
+        const label = document.createElement('div');
+        label.textContent = person.name;
+        cell.appendChild(label);
+        cell.addEventListener('click', ()=>{ toggleSelect(person.id); });
+        namesContainer.appendChild(cell);
+      });
+      selectedCount.textContent = selected.size;
+    }
+
+    function toggleSelect(id){
+      if(selected.has(id)) selected.delete(id);
+      else selected.add(id);
+      renderNames();
+    }
+
+    function moveToSidebar(id){
+      const p = names.find(x=>x.id===id);
+      if(!p) return;
+      p.removed = true;
+      selected.delete(id);
+      renderNames();
+      renderSidebar();
+    }
+
+    function renderSidebar(){
+      sidebarList.innerHTML = '';
+      const removed = names.filter(x=>x.removed);
+      if(removed.length===0){ sidebarList.innerHTML = '<div class="small">Keine entfernten Namen</div>'; return; }
+      removed.forEach(p=>{
+        const row = document.createElement('div');
+        row.className = 'item';
+        const label = document.createElement('div'); label.textContent = p.name;
+        const actions = document.createElement('div');
+        const addBtn = document.createElement('button'); addBtn.className='btn'; addBtn.textContent='Hinzufügen';
+        addBtn.addEventListener('click', ()=>{ p.removed=false; renderSidebar(); renderNames(); });
+        const delBtn = document.createElement('button'); delBtn.className='btn'; delBtn.textContent='×';
+        delBtn.addEventListener('click', ()=>{
+          names = names.filter(x=>x.id!==p.id);
+          renderSidebar(); renderNames();
+        });
+        actions.appendChild(addBtn); actions.appendChild(delBtn);
+        row.appendChild(label); row.appendChild(actions);
+        sidebarList.appendChild(row);
+      });
+    }
+
+    function setupGroupCards(){
+      groupsGrid.innerHTML = '';
+      for(let i=1;i<=10;i++){
+        const card = document.createElement('div'); card.className='group-card'; card.id='group-'+i;
+        const h = document.createElement('h5'); h.textContent = 'Gruppe '+i;
+        const list = document.createElement('div'); list.className='members';
+        card.appendChild(h); card.appendChild(list);
+        groupsGrid.appendChild(card);
+      }
+    }
+
+    function shuffle(arr){
+      for(let i=arr.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]];
+      }
+    }
+
+    function makeGroups(selectedIds){
+      const namesList = selectedIds.map(id=> names.find(n=>n.id===id).name);
+      shuffle(namesList);
+      const groups = [];
+      if(mode===2){
+        for(let i=0;i<namesList.length;i+=2){
+          const chunk = namesList.slice(i,i+2);
+          groups.push(chunk);
+        }
+      } else if(mode===3){
+        for(let i=0;i<namesList.length;i+=3){
+          const chunk = namesList.slice(i,i+3);
+          groups.push(chunk);
+        }
+      } else if(mode===4){
+        for(let i=0;i<namesList.length;i+=4){
+          const chunk = namesList.slice(i,i+4);
+          groups.push(chunk);
+        }
+        const last = groups[groups.length-1];
+        if(last && last.length===1 && groups.length>=2){
+          const prev = groups[groups.length-2];
+          if(prev.length>1){
+            const taken = prev.pop();
+            last.unshift(taken);
+          }
+        }
+      }
+      return groups.filter(g=>g.length>0);
+    }
+
+    function renderGroups(groups){
+      for(let i=1;i<=10;i++){
+        const card = document.getElementById('group-'+i);
+        card.querySelector('.members').innerHTML = '';
+      }
+      for(let i=0;i<groups.length && i<10;i++){
+        const card = document.getElementById('group-'+(i+1));
+        const list = card.querySelector('.members');
+        groups[i].forEach(m=>{
+          const d = document.createElement('div'); d.className='member'; d.textContent = m;
+          list.appendChild(d);
+        });
+      }
+    }
+
+    document.getElementById('mode2').addEventListener('click', ()=>{ setMode(2); });
+    document.getElementById('mode3').addEventListener('click', ()=>{ setMode(3); });
+    document.getElementById('mode4').addEventListener('click', ()=>{ setMode(4); });
+
+    function setMode(m){ mode=m; document.querySelectorAll('#mode2,#mode3,#mode4').forEach(b=>b.classList.remove('active'));
+      if(m===2) document.getElementById('mode2').classList.add('active');
+      if(m===3) document.getElementById('mode3').classList.add('active');
+      if(m===4) document.getElementById('mode4').classList.add('active');
+    }
+
+    document.getElementById('startBtn').addEventListener('click', ()=>{
+      const selectedIds = Array.from(selected);
+      if(selectedIds.length===0){ alert('Keine ausgewählten Namen!'); return; }
+      const groups = makeGroups(selectedIds);
+      renderGroups(groups);
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', ()=>{
+      names = initialNames.map((n,i)=>({id:i,name:n,removed:false}));
+      selected = new Set();
+      mode = 2;
+      document.getElementById('mode2').classList.add('active');
+      document.getElementById('mode3').classList.remove('active');
+      document.getElementById('mode4').classList.remove('active');
+      renderNames(); renderSidebar(); setupGroupCards();
+    });
+
+    setupGroupCards(); renderNames(); renderSidebar();
+  </script>
+</body>
+</html>
